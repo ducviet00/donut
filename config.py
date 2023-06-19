@@ -1,5 +1,5 @@
 from pydantic import BaseSettings
-
+from datetime import datetime
 
 class Settings(BaseSettings):
     dataset_name: str = "naver-clova-ix/cord-v2"
@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     verbose: bool = True
     gpu_devices = 1
     num_sanity_val_steps = -1
+    log_name = f"cord-{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
 
 settings = Settings()
 

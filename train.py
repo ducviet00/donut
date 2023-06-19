@@ -24,6 +24,7 @@ from data.cord import DonutDataset
 from donut import JSONParseEvaluator
 from pl_modules import DonutModelPLModule
 
+logger.add(f"{settings.log_name}.log")
 
 def validate(model: VisionEncoderDecoderModel, processor: DonutProcessor):
 
@@ -156,7 +157,7 @@ def main():
     logger.info("Pad token ID:", processor.decode([model.config.pad_token_id]))
     logger.info("Decoder start token ID:", processor.decode([model.config.decoder_start_token_id]))
 
-    csv_logger = CSVLogger(save_dir=".", name="demo-run-cord")
+    csv_logger = CSVLogger(save_dir="logs", name=settings.log_name)
 
     early_stop_callback = EarlyStopping(
         monitor="val_edit_distance", patience=3, verbose=False, mode="min"
