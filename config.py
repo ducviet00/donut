@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     warmup_steps: int = 300
     result_path: str = "./result"
     verbose: bool = True
-
+    gpu_devices = 1
 
 settings = Settings()
 

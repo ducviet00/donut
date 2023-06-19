@@ -164,7 +164,7 @@ def main():
 
     trainer = pl.Trainer(
         accelerator="gpu",
-        devices=1,
+        devices=settings.gpu_devices,
         max_epochs=settings.max_epochs,
         val_check_interval=settings.val_check_interval,
         check_val_every_n_epoch=settings.check_val_every_n_epoch,
