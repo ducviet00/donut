@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     verbose: bool = True
     gpu_devices = 1
     num_sanity_val_steps = -1
-    log_name = f"cord-{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+    log_name = f"cord-{datetime.now().strftime('%d%m%Y-%H:%M:%S')}"
 
 settings = Settings()
 
