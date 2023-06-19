@@ -7,3 +7,5 @@ torchvision
 protobuf==3.20.3
 nltk
 pydantic
+loguru
+zss

@@ -21,7 +21,7 @@ from transformers import (DonutProcessor, VisionEncoderDecoderConfig,
 
 from config import settings
 from data.cord import DonutDataset
-from donut import JSONParseEvaluator
+from utils import JSONParseEvaluator
 from pl_modules import DonutModelPLModule
 
 logger.add(f"{settings.log_name}.log")
