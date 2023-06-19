@@ -170,7 +170,7 @@ def main():
         check_val_every_n_epoch=settings.check_val_every_n_epoch,
         gradient_clip_val=settings.gradient_clip_val,
         precision=16,  # we'll use mixed precision
-        num_sanity_val_steps=0,
+        num_sanity_val_steps=settings.num_sanity_val_steps,
         logger=csv_logger,
         callbacks=[early_stop_callback],
     )

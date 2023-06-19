@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     result_path: str = "./result"
     verbose: bool = True
     gpu_devices = 1
+    num_sanity_val_steps = -1
 
 settings = Settings()
 
