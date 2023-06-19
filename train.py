@@ -1,5 +1,6 @@
 import json
 import math
+import os
 import re
 from pathlib import Path
 
@@ -21,10 +22,11 @@ from transformers import (DonutProcessor, VisionEncoderDecoderConfig,
 
 from config import settings
 from data.cord import DonutDataset
-from utils import JSONParseEvaluator
 from pl_modules import DonutModelPLModule
+from utils import JSONParseEvaluator
 
-logger.add(f"{settings.log_name}.log")
+os.makedirs(f"logs/{settings.log_name}/", exist_ok=True)
+logger.add(f"logs/{settings.log_name}/train.log")
 
 def validate(model: VisionEncoderDecoderModel, processor: DonutProcessor):
 

@@ -1,5 +1,8 @@
-from pydantic import BaseSettings
+import os
 from datetime import datetime
+
+from pydantic import BaseSettings
+
 
 class Settings(BaseSettings):
     dataset_name: str = "naver-clova-ix/cord-v2"
