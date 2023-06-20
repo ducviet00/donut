@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     image_size: list = [1280, 960]
     max_length: int = 768
     max_epochs: int = 30
-    val_check_interval: float = 0.2
+    val_check_interval: float = 1
     check_val_every_n_epoch: int = 1
     gradient_clip_val: float = 1.0
     num_training_samples_per_epoch: int = 800
@@ -21,10 +21,9 @@ class Settings(BaseSettings):
     seed: int = 2023
     num_nodes: int = 1
     warmup_steps: int = 300
-    result_path: str = "./result"
-    verbose: bool = True
+    verbose: bool = False
     gpu_devices = 1
-    num_sanity_val_steps = -1
+    num_sanity_val_steps = 2
     log_name = f"cord-{datetime.now().strftime('%d%m%Y-%H:%M:%S')}"
 
 settings = Settings()

@@ -9,3 +9,4 @@ nltk
 pydantic
 loguru
 zss
+tensorboardX

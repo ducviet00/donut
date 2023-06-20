@@ -10,8 +10,8 @@ import torch
 from datasets import load_dataset
 from loguru import logger
 from nltk import edit_distance
-from pytorch_lightning.callbacks import Callback, EarlyStopping
-from pytorch_lightning.loggers import CSVLogger
+from pytorch_lightning.callbacks import EarlyStopping
+from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
 from pytorch_lightning.utilities import rank_zero_only
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim.lr_scheduler import LambdaLR
@@ -24,70 +24,10 @@ from config import settings
 from data.cord import DonutDataset
 from pl_modules import DonutModelPLModule
 from utils import JSONParseEvaluator
+from validate import validate
 
 os.makedirs(f"logs/{settings.log_name}/", exist_ok=True)
 logger.add(f"logs/{settings.log_name}/train.log")
-
-def validate(model: VisionEncoderDecoderModel, processor: DonutProcessor):
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    model.eval()
-    model.to(device)
-
-    output_list = []
-    accs = []
-
-    dataset = load_dataset("naver-clova-ix/cord-v2", split="validation")
-
-    for idx, sample in tqdm(enumerate(dataset), total=len(dataset)):
-        # prepare encoder inputs
-        pixel_values = processor(
-            sample["image"].convert("RGB"), return_tensors="pt"
-        ).pixel_values
-        pixel_values = pixel_values.to(device)
-        # prepare decoder inputs
-        task_prompt = "<s_cord-v2>"
-        decoder_input_ids = processor.tokenizer(
-            task_prompt, add_special_tokens=False, return_tensors="pt"
-        ).input_ids
-        decoder_input_ids = decoder_input_ids.to(device)
-
-        # autoregressively generate sequence
-        outputs = model.generate(
-            pixel_values,
-            decoder_input_ids=decoder_input_ids,
-            max_length=model.decoder.config.max_position_embeddings,
-            early_stopping=True,
-            pad_token_id=processor.tokenizer.pad_token_id,
-            eos_token_id=processor.tokenizer.eos_token_id,
-            use_cache=True,
-            num_beams=1,
-            bad_words_ids=[[processor.tokenizer.unk_token_id]],
-            return_dict_in_generate=True,
-        )
-
-        # turn into JSON
-        seq = processor.batch_decode(outputs.sequences)[0]
-        seq = seq.replace(processor.tokenizer.eos_token, "").replace(
-            processor.tokenizer.pad_token, ""
-        )
-        seq = re.sub(
-            r"<.*?>", "", seq, count=1
-        ).strip()  # remove first task start token
-        seq = processor.token2json(seq)
-
-        ground_truth = json.loads(sample["ground_truth"])
-        ground_truth = ground_truth["gt_parse"]
-        evaluator = JSONParseEvaluator()
-        score = evaluator.cal_acc(seq, ground_truth)
-
-        accs.append(score)
-        output_list.append(seq)
-
-    scores = {"accuracies": accs, "mean_accuracy": np.mean(accs)}
-    
-    return scores
 
 def get_data(model: VisionEncoderDecoderModel, processor: DonutProcessor):
     train_dataset = DonutDataset(
@@ -148,21 +88,20 @@ def main():
         f"""
         Verify batch
         Shape of pixel_values: {pixel_values.shape}
-        First 100 labels: {labels}
-        Target Sequences: {target_sequences}
+        First 100 labels: {labels[:100]}
+        Target Sequences: {target_sequences[:100]}
         """
     )
 
     model.config.pad_token_id = processor.tokenizer.pad_token_id
     model.config.decoder_start_token_id = processor.tokenizer.convert_tokens_to_ids([settings.task_start_token])[0]
     # sanity check
-    logger.info("Pad token ID:", processor.decode([model.config.pad_token_id]))
-    logger.info("Decoder start token ID:", processor.decode([model.config.decoder_start_token_id]))
+    logger.info(f"Pad token ID: {processor.decode([model.config.pad_token_id])}")
+    logger.info(f"Decoder start token ID: {processor.decode([model.config.decoder_start_token_id])}")
 
-    csv_logger = CSVLogger(save_dir="logs", name=settings.log_name)
-
+    tensorboard_logger = TensorBoardLogger(save_dir="logs", name=settings.log_name)
     early_stop_callback = EarlyStopping(
-        monitor="val_edit_distance", patience=3, verbose=False, mode="min"
+        monitor="val_edit_distance", patience=10, verbose=True, mode="min"
     )
 
     trainer = pl.Trainer(
@@ -172,16 +111,18 @@ def main():
         val_check_interval=settings.val_check_interval,
         check_val_every_n_epoch=settings.check_val_every_n_epoch,
         gradient_clip_val=settings.gradient_clip_val,
-        precision=16,  # we'll use mixed precision
+        precision='bf16-mixed',  # we'll use mixed precision
         num_sanity_val_steps=settings.num_sanity_val_steps,
-        logger=csv_logger,
+        logger=tensorboard_logger,
         callbacks=[early_stop_callback],
     )
 
     model_module = DonutModelPLModule(processor, model, train_dataloader, val_dataloader)
     trainer.fit(model_module)
-    scores = validate(model=model, processor=processor)
-    logger.info("Mean accuracy:", scores["mean_accuracy"])
+    scores = validate(model=model, processor=processor, dataset_subset="validation")
+    logger.info(f"Mean accuracy: {scores['mean_accuracy']}")
+    model_module.processor.save_pretrained(f'logs/{settings.log_name}')
+    model_module.model.save_pretrained(f'logs/{settings.log_name}')
 
 if __name__ == "__main__":
     main()

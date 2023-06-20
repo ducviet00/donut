@@ -8,7 +8,19 @@ from typing import Any, Dict, List, Union
 
 import zss
 from nltk import edit_distance
+from pytorch_lightning.callbacks import Callback, EarlyStopping
 from zss import Node
+from config import settings
+
+class HuggingfaceCallback(Callback):
+    def on_train_epoch_end(self, trainer, pl_module):
+        print(f"Saving model to the logs/{settings.log_name}, epoch {trainer.current_epoch}")
+        pl_module.model.save_pretrained(f'logs/{settings.log_name}')
+
+    def on_train_end(self, trainer, pl_module):
+        print(f"Saving model to the logs/{settings.log_name} after training")
+        pl_module.processor.save_pretrained(f'logs/{settings.log_name}')
+        pl_module.model.save_pretrained(f'logs/{settings.log_name}')
 
 class JSONParseEvaluator:
     """
