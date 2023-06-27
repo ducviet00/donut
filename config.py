@@ -1,7 +1,8 @@
 import os
 from datetime import datetime
-
 from pydantic import BaseSettings
+
+pre_training = True
 
 
 class Settings(BaseSettings):
@@ -14,17 +15,34 @@ class Settings(BaseSettings):
     val_check_interval: float = 1
     check_val_every_n_epoch: int = 1
     gradient_clip_val: float = 1.0
-    num_training_samples_per_epoch: int = 800
+    log_every_n_steps: int = 500
     lr: float = 3e-5
     train_batch_size: int = 1
     val_batch_size: int = 1
     seed: int = 2023
     num_nodes: int = 1
-    warmup_steps: int = 300
+    warmup_steps: int = 3000
     verbose: bool = False
     gpu_devices = 1
     num_sanity_val_steps = 2
+    pre_training = False
     log_name = f"cord-{datetime.now().strftime('%d%m%Y-%H:%M:%S')}"
 
-settings = Settings()
 
+if Settings().pre_training:
+    settings = Settings(
+        dataset_name="naver-clova-ix/synthdog-en",
+        task_start_token="<s_synthdog>",
+        prompt_end_token="<s_synthdog>",
+        image_size=[2048, 1536],
+        max_length=1024,
+        val_check_interval=0.01,
+        gpu_devices=8,
+        max_epochs=2,
+        lr=1e-4,
+        train_batch_size=2,
+        val_batch_size=12,
+        pre_training=True,
+    )
+else:
+    settings = Settings()

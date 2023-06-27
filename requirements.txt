@@ -10,3 +10,4 @@ pydantic
 loguru
 zss
 tensorboardX
+jiwer
