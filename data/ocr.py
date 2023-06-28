@@ -35,6 +35,7 @@ class SynthdogDataset(Dataset):
         ignore_id: int = -100,
         task_start_token: str = "<s>",
         prompt_end_token: str = None,
+        sample_size: int = 96,
     ):
         super().__init__()
 
@@ -46,7 +47,7 @@ class SynthdogDataset(Dataset):
         self.task_start_token = task_start_token
         self.prompt_end_token = prompt_end_token if prompt_end_token else task_start_token
 
-        self.dataset = load_dataset(dataset_name_or_path, split=self.split, num_proc=48)
+        self.dataset = load_dataset(dataset_name_or_path, split=self.split, num_proc=48).select(range(sample_size))
         self.dataset_length = len(self.dataset)
         self.gt_token_sequences = []
         self.prepare_labels()
@@ -58,7 +59,7 @@ class SynthdogDataset(Dataset):
         for sample in self.dataset:
             ground_truth = json.loads(sample["ground_truth"])
             assert "gt_parse" in ground_truth and isinstance(ground_truth["gt_parse"], dict)
-            self.gt_token_sequences.append(ground_truth["gt_parse"]["text_sequence"])
+            self.gt_token_sequences.append(ground_truth["gt_parse"]["text_sequence"] + self.processor.tokenizer.eos_token)
 
     def add_tokens(self, list_of_tokens: List[str]):
         """

@@ -85,18 +85,36 @@ class DonutModelPLModule(pl.LightningModule):
                 logger.info(f"    Answer: {answer}")
                 logger.info(f" Normed ED: {scores[0]}")
 
-
-        self.log("val_edit_distance", np.mean(scores), sync_dist=True, batch_size=settings.val_batch_size)
+        val_edit_distance = np.mean(scores)
+        self.log("val_edit_distance", val_edit_distance, sync_dist=True, batch_size=settings.val_batch_size)
 
         cer = evaluate.load("cer")
         cer.add_batch(predictions=predictions, references=answers)
         cer_score = cer.compute()
         self.log("character_error_rate", cer_score, sync_dist=True, batch_size=settings.val_batch_size)
 
-        return scores
+        return (val_edit_distance, cer_score)
 
     def configure_optimizers(self):
-        # you could also add a learning rate scheduler if you want
         optimizer = torch.optim.Adam(self.parameters(), lr=settings.lr)
+        scheduler = {
+            "scheduler": self.cosine_scheduler(optimizer, settings.max_steps, settings.warmup_steps),
+            "name": "learning_rate",
+            "interval": "step",
+        }
+        return [optimizer], [scheduler]
 
-        return optimizer
+    @staticmethod
+    def cosine_scheduler(optimizer, training_steps, warmup_steps):
+        def lr_lambda(current_step):
+            if current_step < warmup_steps:
+                return current_step / max(1, warmup_steps)
+            progress = current_step - warmup_steps
+            progress /= max(1, training_steps - warmup_steps)
+            return max(0.0, 0.5 * (1.0 + math.cos(math.pi * progress)))
+
+        return LambdaLR(optimizer, lr_lambda)
+
+    @rank_zero_only
+    def on_save_checkpoint(self, checkpoint):
+        self.model.save_pretrained(f"{self.logger.save_dir}/{settings.log_name}")

@@ -11,17 +11,18 @@ class Settings(BaseSettings):
     prompt_end_token: str = "<s_cord-v2>"
     image_size: list = [1280, 960]
     max_length: int = 768
-    max_epochs: int = 30
+    max_epochs: int = -1
+    max_steps: int = 10000
     val_check_interval: float = 1
     check_val_every_n_epoch: int = 1
     gradient_clip_val: float = 1.0
-    log_every_n_steps: int = 500
+    log_every_n_steps: int = 10
     lr: float = 3e-5
     train_batch_size: int = 1
     val_batch_size: int = 1
     seed: int = 2023
     num_nodes: int = 1
-    warmup_steps: int = 3000
+    warmup_steps: int = 100
     verbose: bool = False
     gpu_devices = 1
     num_sanity_val_steps = 2
@@ -36,13 +37,13 @@ if Settings().pre_training:
         prompt_end_token="<s_synthdog>",
         image_size=[2048, 1536],
         max_length=1024,
-        val_check_interval=0.01,
+        val_check_interval=1,
         gpu_devices=8,
-        max_epochs=2,
         lr=1e-4,
         train_batch_size=2,
         val_batch_size=12,
         pre_training=True,
+        verbose=True
     )
 else:
     settings = Settings()

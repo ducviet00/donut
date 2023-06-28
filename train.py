@@ -10,7 +10,7 @@ import torch
 from datasets import load_dataset
 from loguru import logger
 from nltk import edit_distance
-from pytorch_lightning.callbacks import EarlyStopping
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, LearningRateMonitor
 from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
 from pytorch_lightning.utilities import rank_zero_only
 from torch.nn.utils.rnn import pad_sequence
@@ -42,9 +42,10 @@ def get_data(model: VisionEncoderDecoderModel, processor: DonutProcessor):
         processor=processor,
         dataset_name_or_path=settings.dataset_name,
         max_length=settings.max_length,
-        split="train",
+        split="validation",
         task_start_token=settings.task_start_token,
         prompt_end_token=settings.prompt_end_token,
+        sample_size=500,
     )
 
     val_dataset = SynthdogDataset(
@@ -119,17 +120,23 @@ def main():
     tensorboard_logger = TensorBoardLogger(save_dir="logs", name=settings.log_name)
     if settings.pre_training:
         early_stop_callback = EarlyStopping(
-            monitor="character_error_rate", patience=10, verbose=True, mode="min"
+            monitor="train_loss", patience=10, verbose=True, mode="min"
         )
     else:
         early_stop_callback = EarlyStopping(
             monitor="val_edit_distance", patience=10, verbose=True, mode="min"
         )
 
+    lr_monitor = LearningRateMonitor(logging_interval='step')
+    checkpoint_callback = ModelCheckpoint(
+        monitor='character_error_rate'
+    )
+
     trainer = pl.Trainer(
         accelerator="gpu",
         devices=settings.gpu_devices,
         max_epochs=settings.max_epochs,
+        max_steps=settings.max_steps,
         val_check_interval=settings.val_check_interval,
         check_val_every_n_epoch=settings.check_val_every_n_epoch,
         gradient_clip_val=settings.gradient_clip_val,
@@ -137,7 +144,7 @@ def main():
         num_sanity_val_steps=settings.num_sanity_val_steps,
         logger=tensorboard_logger,
         log_every_n_steps=settings.log_every_n_steps,
-        callbacks=[early_stop_callback],
+        callbacks=[lr_monitor, checkpoint_callback],
     )
 
     model_module = DonutModelPLModule(
