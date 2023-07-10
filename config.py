@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     lr: float = 3e-5
     train_batch_size: int = 6
     val_batch_size: int = 20
-    seed: int = 2023
+    seed: int = 2022
     num_nodes: int = 1
     warmup_steps: int = 300
     verbose: bool = False

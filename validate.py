@@ -76,13 +76,14 @@ def validate(model: VisionEncoderDecoderModel, processor: DonutProcessor, datase
     return scores
 
 if __name__ == "__main__":
-    config = VisionEncoderDecoderConfig.from_pretrained("logs/cord-19062023-20:12:00")
+    model_path = "logs/cord-finetuning-base/best"
+    config = VisionEncoderDecoderConfig.from_pretrained(model_path)
     config.encoder.image_size = settings.image_size  # (height, width)
     config.decoder.max_length = settings.max_length
     model = VisionEncoderDecoderModel.from_pretrained(
-        "logs/cord-19062023-20:12:00", config=config
+        model_path, config=config
     )
-    processor = DonutProcessor.from_pretrained("logs/cord-19062023-20:12:00")
+    processor = DonutProcessor.from_pretrained("logs/cord-finetuning-base")
     scores = validate(model=model, processor=processor, dataset_subset="validation")
     logger.info(f"Mean validation set accuracy: {scores['mean_accuracy']}")
     logger.info(f"Mean validation set F1 Score: {scores['f1_accuracy']}")
