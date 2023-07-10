@@ -12,9 +12,8 @@ from config import settings
 from utils import JSONParseEvaluator
 
 
-def validate(model: VisionEncoderDecoderModel, processor: DonutProcessor, dataset_subset: str):
+def validate(model: VisionEncoderDecoderModel, processor: DonutProcessor, dataset_subset: str, device = "cuda" if torch.cuda.is_available() else "cpu"):
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     model.eval()
     model.to(device)

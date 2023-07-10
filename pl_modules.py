@@ -97,12 +97,14 @@ class DonutModelPLModule(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=settings.lr)
-        scheduler = {
-            "scheduler": self.cosine_scheduler(optimizer, settings.max_steps, settings.warmup_steps),
-            "name": "learning_rate",
-            "interval": "step",
-        }
-        return [optimizer], [scheduler]
+        if settings.pre_training:
+            scheduler = {
+                "scheduler": self.cosine_scheduler(optimizer, settings.max_steps, settings.warmup_steps),
+                "name": "learning_rate",
+                "interval": "step",
+            }
+            return [optimizer], [scheduler]
+        return optimizer
 
     @staticmethod
     def cosine_scheduler(optimizer, training_steps, warmup_steps):
@@ -117,4 +119,4 @@ class DonutModelPLModule(pl.LightningModule):
 
     @rank_zero_only
     def on_save_checkpoint(self, checkpoint):
-        self.model.save_pretrained(f"{self.logger.save_dir}/{settings.log_name}")
+        self.model.save_pretrained(f"{self.logger.save_dir}/{settings.log_name}/best")

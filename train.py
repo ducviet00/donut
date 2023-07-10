@@ -37,26 +37,48 @@ logger.add(f"logs/{settings.log_name}/train.log")
 
 torch.set_float32_matmul_precision("medium")
 def get_data(model: VisionEncoderDecoderModel, processor: DonutProcessor):
-    train_dataset = SynthdogDataset(
-        model=model,
-        processor=processor,
-        dataset_name_or_path=settings.dataset_name,
-        max_length=settings.max_length,
-        split="validation",
-        task_start_token=settings.task_start_token,
-        prompt_end_token=settings.prompt_end_token,
-        sample_size=500,
-    )
+    if settings.pre_training:
+        train_dataset = SynthdogDataset(
+            model=model,
+            processor=processor,
+            dataset_name_or_path=settings.dataset_name,
+            max_length=settings.max_length,
+            split="train",
+            task_start_token=settings.task_start_token,
+            prompt_end_token=settings.prompt_end_token,
+            sample_size=500000
+        )
 
-    val_dataset = SynthdogDataset(
-        model=model,
-        processor=processor,
-        dataset_name_or_path=settings.dataset_name,
-        max_length=settings.max_length,
-        split="validation",
-        task_start_token=settings.task_start_token,
-        prompt_end_token=settings.prompt_end_token,
-    )
+        val_dataset = SynthdogDataset(
+            model=model,
+            processor=processor,
+            dataset_name_or_path=settings.dataset_name,
+            max_length=settings.max_length,
+            split="validation",
+            task_start_token=settings.task_start_token,
+            prompt_end_token=settings.prompt_end_token,
+            sample_size=500000
+        )
+    else:
+        train_dataset = DonutDataset(
+            model=model,
+            processor=processor,
+            dataset_name_or_path=settings.dataset_name,
+            max_length=settings.max_length,
+            split="train",
+            task_start_token=settings.task_start_token,
+            prompt_end_token=settings.prompt_end_token
+        )
+
+        val_dataset = DonutDataset(
+            model=model,
+            processor=processor,
+            dataset_name_or_path=settings.dataset_name,
+            max_length=settings.max_length,
+            split="validation",
+            task_start_token=settings.task_start_token,
+            prompt_end_token=settings.prompt_end_token
+        )
 
     train_dataloader = DataLoader(
         train_dataset, batch_size=settings.train_batch_size, shuffle=True, num_workers=24
@@ -71,7 +93,7 @@ def get_data(model: VisionEncoderDecoderModel, processor: DonutProcessor):
 def main():
     # update image_size of the encoder
     # during pre-training, a larger image size was used
-    config = VisionEncoderDecoderConfig.from_pretrained("naver-clova-ix/donut-base")
+    config = VisionEncoderDecoderConfig.from_pretrained(settings.base_model)
     config.encoder.image_size = settings.image_size  # (height, width)
     # update max_length of the decoder (for generation)
     config.decoder.max_length = settings.max_length
@@ -85,10 +107,10 @@ def main():
         )
     else:
         model = VisionEncoderDecoderModel.from_pretrained(
-            "naver-clova-ix/donut-base", config=config
+            settings.base_model, config=config
         )
 
-    processor = DonutProcessor.from_pretrained("naver-clova-ix/donut-base")
+    processor = DonutProcessor.from_pretrained(settings.base_model)
     processor.image_processor.size = settings.image_size[
         ::-1
     ]  # should be (width, height)
@@ -122,15 +144,18 @@ def main():
         early_stop_callback = EarlyStopping(
             monitor="train_loss", patience=10, verbose=True, mode="min"
         )
+        checkpoint_callback = ModelCheckpoint(
+            monitor='character_error_rate'
+        )
     else:
         early_stop_callback = EarlyStopping(
             monitor="val_edit_distance", patience=10, verbose=True, mode="min"
         )
+        checkpoint_callback = ModelCheckpoint(
+            monitor='val_edit_distance'
+        )
 
     lr_monitor = LearningRateMonitor(logging_interval='step')
-    checkpoint_callback = ModelCheckpoint(
-        monitor='character_error_rate'
-    )
 
     trainer = pl.Trainer(
         accelerator="gpu",
