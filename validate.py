@@ -1,8 +1,9 @@
+import argparse
 import json
 import re
-
 import numpy as np
 import torch
+
 from datasets import load_dataset
 from tqdm.auto import tqdm
 from loguru import logger
@@ -13,7 +14,6 @@ from utils import JSONParseEvaluator
 
 
 def validate(model: VisionEncoderDecoderModel, processor: DonutProcessor, dataset_subset: str, device = "cuda" if torch.cuda.is_available() else "cpu"):
-
 
     model.eval()
     model.to(device)
@@ -72,18 +72,24 @@ def validate(model: VisionEncoderDecoderModel, processor: DonutProcessor, datase
         ground_truths.append(ground_truth)
 
     scores = {"accuracies": accs, "mean_accuracy": np.mean(accs), "f1_accuracy": evaluator.cal_f1(output_list, ground_truths),}
-    
+
     return scores
 
 if __name__ == "__main__":
-    model_path = "logs/cord-finetuning-base/best"
+
+    parser = argparse.ArgumentParser()
+    # Adding optional argument
+    parser.add_argument("-m", "--model-path", help = "Model Path")
+    # Read arguments from command line
+    args = parser.parse_args()
+    model_path = args.model_path
     config = VisionEncoderDecoderConfig.from_pretrained(model_path)
     config.encoder.image_size = settings.image_size  # (height, width)
     config.decoder.max_length = settings.max_length
     model = VisionEncoderDecoderModel.from_pretrained(
         model_path, config=config
     )
-    processor = DonutProcessor.from_pretrained("logs/cord-finetuning-base")
+    processor = DonutProcessor.from_pretrained(model_path)
     scores = validate(model=model, processor=processor, dataset_subset="validation")
     logger.info(f"Mean validation set accuracy: {scores['mean_accuracy']}")
     logger.info(f"Mean validation set F1 Score: {scores['f1_accuracy']}")

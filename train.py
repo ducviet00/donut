@@ -57,7 +57,7 @@ def get_data(model: VisionEncoderDecoderModel, processor: DonutProcessor):
             split="validation",
             task_start_token=settings.task_start_token,
             prompt_end_token=settings.prompt_end_token,
-            sample_size=500000
+            sample_size=500
         )
     else:
         train_dataset = DonutDataset(
@@ -67,7 +67,8 @@ def get_data(model: VisionEncoderDecoderModel, processor: DonutProcessor):
             max_length=settings.max_length,
             split="train",
             task_start_token=settings.task_start_token,
-            prompt_end_token=settings.prompt_end_token
+            prompt_end_token=settings.prompt_end_token,
+            sort_json_key=False
         )
 
         val_dataset = DonutDataset(
@@ -77,7 +78,8 @@ def get_data(model: VisionEncoderDecoderModel, processor: DonutProcessor):
             max_length=settings.max_length,
             split="validation",
             task_start_token=settings.task_start_token,
-            prompt_end_token=settings.prompt_end_token
+            prompt_end_token=settings.prompt_end_token,
+            sort_json_key=False
         )
 
     train_dataloader = DataLoader(
@@ -158,8 +160,7 @@ def main():
     lr_monitor = LearningRateMonitor(logging_interval='step')
 
     trainer = pl.Trainer(
-        accelerator="gpu",
-        devices=settings.gpu_devices,
+        accelerator="cpu",
         max_epochs=settings.max_epochs,
         max_steps=settings.max_steps,
         val_check_interval=settings.val_check_interval,

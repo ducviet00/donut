@@ -75,8 +75,9 @@ class DonutModelPLModule(pl.LightningModule):
         scores = []
         for pred, answer in zip(predictions, answers):
             pred = re.sub(r"(?:(?<=>) | (?=</s_))", "", pred)
-            # NOT NEEDED ANYMORE
+            # logger.info(f"    Answer Before re.sub: {answer}")
             # answer = re.sub(r"<.*?>", "", answer, count=1)
+            # logger.info(f"    Answer After re.sub: {answer}")
             answer = answer.replace(self.processor.tokenizer.eos_token, "")
             scores.append(edit_distance(pred, answer) / max(len(pred), len(answer)))
 
@@ -120,3 +121,4 @@ class DonutModelPLModule(pl.LightningModule):
     @rank_zero_only
     def on_save_checkpoint(self, checkpoint):
         self.model.save_pretrained(f"{self.logger.save_dir}/{settings.log_name}/best")
+        self.processor.save_pretrained(f"{self.logger.save_dir}/{settings.log_name}/best")
