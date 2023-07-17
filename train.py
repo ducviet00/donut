@@ -15,7 +15,7 @@ from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
 from pytorch_lightning.utilities import rank_zero_only
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim.lr_scheduler import LambdaLR
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, ConcatDataset
 from tqdm.auto import tqdm
 from transformers import (
     DonutProcessor,
@@ -24,12 +24,14 @@ from transformers import (
 )
 
 from config import settings
-from data.cord import DonutDataset
-from data.ocr import SynthdogDataset
+from data import DonutDataset, SynthdogDataset, CORDOCRDataset
 from donut import DonutModel
 from pl_modules import DonutModelPLModule
 from utils import JSONParseEvaluator
 from validate import validate
+
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 os.makedirs(f"logs/{settings.log_name}/", exist_ok=True)
 logger.add(f"logs/{settings.log_name}/train.log")
@@ -46,8 +48,19 @@ def get_data(model: VisionEncoderDecoderModel, processor: DonutProcessor):
             split="train",
             task_start_token=settings.task_start_token,
             prompt_end_token=settings.prompt_end_token,
-            sample_size=500000
+            sample_size=1000
         )
+        if settings.cord_ocr_path:
+            train_cord_dataset = CORDOCRDataset(
+                model=model,
+                processor=processor,
+                dataset_name_or_path=settings.cord_ocr_path,
+                max_length=settings.max_length,
+                split="train",
+                task_start_token=settings.task_start_token,
+                prompt_end_token=settings.prompt_end_token,
+            )
+            train_dataset = ConcatDataset([train_dataset, train_cord_dataset])
 
         val_dataset = SynthdogDataset(
             model=model,
@@ -101,7 +114,7 @@ def main():
     config.decoder.max_length = settings.max_length
     # TODO we should actually update max_position_embeddings and interpolate the pre-trained ones:
     # https://github.com/clovaai/donut/blob/0acc65a85d140852b8d9928565f0f6b2d98dc088/donut/model.py#L602
-    if settings.pre_training:
+    if False:
         model = DonutModel.from_encoder_decoder_pretrained(
             encoder_pretrained_model_name_or_path="microsoft/swin-base-patch4-window12-384",
             decoder_pretrained_model_name_or_path="hyunwoongko/asian-bart-ecjk",
@@ -160,7 +173,8 @@ def main():
     lr_monitor = LearningRateMonitor(logging_interval='step')
 
     trainer = pl.Trainer(
-        accelerator="cpu",
+        accelerator="gpu",
+        devices=settings.gpu_devices,
         max_epochs=settings.max_epochs,
         max_steps=settings.max_steps,
         val_check_interval=settings.val_check_interval,

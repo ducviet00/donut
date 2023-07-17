@@ -1,15 +1,17 @@
 import json
-import random
+import os
 from typing import Any, List, Tuple
 
 import torch
-from datasets import load_dataset
 from torch.utils.data import Dataset
 from transformers import DonutProcessor, VisionEncoderDecoderModel
 
+from PIL import ImageFile, Image
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
 added_tokens = []
 
-class SynthdogDataset(Dataset):
+class CORDOCRDataset(Dataset):
     """
     PyTorch Dataset for Synthdog. This class takes a HuggingFace Dataset as input.
 
@@ -17,7 +19,7 @@ class SynthdogDataset(Dataset):
     and it will be converted into pixel_values (vectorized image) and labels (input_ids of the tokenized string).
 
     Args:
-        dataset_name_or_path: name of dataset (available at huggingface.co/datasets) or the path containing image files and metadata.jsonl
+        dataset_name_or_path: name of dataset the path containing image files
         max_length: the max number of tokens for the target sequences
         split: whether to load "train", "validation" or "test" split
         ignore_id: ignore_index for torch.nn.CrossEntropyLoss
@@ -35,7 +37,6 @@ class SynthdogDataset(Dataset):
         ignore_id: int = -100,
         task_start_token: str = "<s>",
         prompt_end_token: str = None,
-        sample_size: int = 96,
     ):
         super().__init__()
 
@@ -47,20 +48,25 @@ class SynthdogDataset(Dataset):
         self.task_start_token = task_start_token
         self.prompt_end_token = prompt_end_token if prompt_end_token else task_start_token
 
-        self.dataset = load_dataset(dataset_name_or_path, split=self.split, num_proc=48).select(range(sample_size))
-        self.dataset_length = len(self.dataset)
+        self.dataset_path = dataset_name_or_path
         self.gt_token_sequences = []
+        self.images = []
         self.prepare_labels()
+        self.dataset_length = len(self.images)
 
         self.add_tokens([self.task_start_token, self.prompt_end_token])
         self.prompt_end_token_id = self.processor.tokenizer.convert_tokens_to_ids(self.prompt_end_token)
 
     def prepare_labels(self):
-        for sample in self.dataset:
-            ground_truth = json.loads(sample["ground_truth"])
+        for _name in os.listdir(self.dataset_path):
+            if not _name.endswith("json"):
+                continue
+            _id = _name.split('.')[0]
+            with open(os.path.join(self.dataset_path, f"{_id}.json"), "r") as f:
+                ground_truth = json.load(f)
             assert "gt_parse" in ground_truth and isinstance(ground_truth["gt_parse"], dict)
             self.gt_token_sequences.append(ground_truth["gt_parse"]["text_sequence"] + self.processor.tokenizer.eos_token)
-
+            self.images.append(Image.open(os.path.join(self.dataset_path, f"{_id}.png")))
     def add_tokens(self, list_of_tokens: List[str]):
         """
         Add special tokens to tokenizer and resize the token embeddings of the decoder
@@ -82,10 +88,10 @@ class SynthdogDataset(Dataset):
             input_ids : tokenized gt_data
             labels : masked labels (model doesn't need to predict prompt and pad token)
         """
-        sample = self.dataset[idx]
+        image = self.images[idx]
 
         # inputs
-        pixel_values = self.processor(sample["image"], random_padding=self.split == "train", return_tensors="pt").pixel_values
+        pixel_values = self.processor(image, random_padding=self.split == "train", return_tensors="pt").pixel_values
         pixel_values = pixel_values.squeeze()
 
         # targets

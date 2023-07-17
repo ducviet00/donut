@@ -26,26 +26,28 @@ class Settings(BaseSettings):
     verbose: bool = True
     gpu_devices: int = 1
     num_sanity_val_steps = 2
-    pre_training = False
+    pre_training = True
+    cord_ocr_path: str = None
     log_name = f"cord-finetuning-100k"
 
 
 if Settings().pre_training:
     settings = Settings(
-        dataset_name="naver-clova-ix/synthdog-ja",
+        dataset_name="naver-clova-ix/synthdog-en",
         task_start_token="<s_synthdog>",
         prompt_end_token="<s_synthdog>",
         image_size=[2048, 1536],
         max_length=1024,
-        val_check_interval=0.2,
+        val_check_interval=1,
         max_steps = 500000,
-        gpu_devices=8,
         lr=1e-4,
         train_batch_size=2,
         val_batch_size=12,
         pre_training=True,
         verbose=True,
-        log_name = f"synthdog-ja-500k"
+        log_name = f"synthdog-cord-1800",
+        cord_ocr_path = "datasets/cord-ocr/train/",
+        base_model = "logs/synthdog-500k"
     )
 else:
     settings = Settings()
